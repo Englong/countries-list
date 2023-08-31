@@ -5,7 +5,7 @@
             <div class="flex items-center">
                 <input type="text" v-model="search" placeholder="Search..."
                     class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                <button type="button" @click="listCountry"
+                <button type="button" @click="listCountry(1)"
                     class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                     Search
                 </button>
@@ -16,7 +16,16 @@
                 <thead>
                     <tr>
                         <th class="border border-slate-600">Flags</th>
-                        <th class="border border-slate-600">Country Name</th>
+                        <th class="border border-slate-600 cursor-pointer"
+                            @click="orderDirection = !orderDirection; listCountry(1)">
+                            Country Name
+                            <span class="material-symbols-outlined" v-if="orderDirection">
+                                keyboard_arrow_down
+                            </span>
+                            <span class="material-symbols-outlined" v-else>
+                                keyboard_arrow_up
+                            </span>
+                        </th>
                         <th class="border border-slate-600">2 character Country Code</th>
                         <th class="border border-slate-600">3 character Country Code</th>
                         <th class="border border-slate-600">Native Country Name</th>
@@ -31,15 +40,28 @@
                                 <img v-bind:src="country.flags.png" class="w-full h-full">
                             </div>
                         </td>
-                        <td class="border border-slate-700">{{ country.name.official }}</td>
+                        <td class="border border-slate-700 cursor-pointer" @click="openModal(country)">{{ country.name.official }}</td>
                         <td class="border border-slate-700">{{ country.cca2 }}</td>
                         <td class="border border-slate-700">{{ country.cca3 }}</td>
-                        <td class="border border-slate-700">{{ country.name.nativeName }}</td>
-                        <td class="border border-slate-700">{{ country.altSpellings }}</td>
-                        <td class="border border-slate-700">{{ country.idd }}</td>
+                        <td class="border border-slate-700">
+                            <span v-for="(value, key, index) in country.languages">
+                                {{ country.name.nativeName[key]?.official }}
+                                <!-- {{ index }}. {{ key }}: {{ value }} -->
+                                <span v-if="country.name.nativeName[key] && country.languages && (index < Object.keys(country.languages).length - 1)">
+                                    ,
+                                </span>
+                            </span>
 
+                        </td>
+                        <td class="border border-slate-700">{{ country.altSpellings.join(" , ") }}</td>
+                        <td class="border border-slate-700"><span v-if="country.idd.root && country.idd.suffixes">{{
+                            country.idd.root + '-' + country.idd.suffixes }}</span></td>
                     </tr>
-                    <tr v-else><td colspan="7" class="text-center"><div class="my-2">Loading ...</div></td></tr>
+                    <tr v-else>
+                        <td colspan="7" class="text-center">
+                            <div class="my-2">Loading ...</div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
             <nav class="flex justify-end mt-5">
@@ -72,8 +94,9 @@
                                 :style="pageNo == countries.current_page ? 'background-color:#12499c !important;color:white' : 'background-color:gray'">
                                 {{ pageNo }}</div>
                         </a>
-                        <a class="text-white" v-if="pageNo == countries.current_page && totalPages > 2 && (pageNo < totalPages - 2 && pageNo > 2)">...</a><!--show when click next page pageNo equal 3-->
-                       
+                        <a class="text-white"
+                            v-if="pageNo == countries.current_page && totalPages > 2 && (pageNo < totalPages - 2 && pageNo > 2)">...</a><!--show when click next page pageNo equal 3-->
+
                         <a @click="listCountry(pageNo)" class="text-white" v-if="totalPages > 3 && pageNo < 3"
                             style="cursor: pointer">
                             <div class="w-8 h-8 flex justify-center items-center"
@@ -95,36 +118,50 @@
             </nav>
         </div>
     </div>
+    <Modal :isModalOpen="isModalOpen" :countryDetail="countryDetail" @close-modal-event="closeModal"/>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue';
+import Modal from '../components/Modal.vue';
 const countries = ref({});
 const search = ref();
 const totalPages = ref();
-const isLoading=ref(false);
+const orderDirection = ref(false);
+const isLoading = ref(false);
+const isModalOpen = ref(false);
+const countryDetail = ref({});
+
 onMounted(() => {
-    listCountry(1);
+    listCountry();
 })
 
-function listCountry(pageNo = 1) {
-    countries.value={};
-    isLoading.value=true;
-    axios
-        .get('/countries',
+function openModal(country) {
+    countryDetail.value=country;
+    isModalOpen.value = true;
+}
+
+function closeModal() {
+    isModalOpen.value = false;
+}
+
+function listCountry(pageNo) {console.log(pageNo);
+    countries.value = {};
+    isLoading.value = true;
+    axios.get('/countries',
+        {
+            params:
             {
-                params:
-                {
-                    page: pageNo,
-                    search: search.value,
-                    orderDirection: 'DESC',
-                }
-            })
+                page: pageNo,
+                search: search.value,
+                orderDirection: orderDirection.value == true ? 'DESC' : 'ASC',
+            }
+        })
         .then(response => {
             countries.value = response.data
             totalPages.value = response.data.last_page
-        }).finally(res=>{
-            isLoading.value=false
+        }).finally(res => {
+            isLoading.value = false
         });
 }
 </script>
